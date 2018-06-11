@@ -1,5 +1,6 @@
 """Pushover platform for notify component."""
 import logging
+import mimetypes
 import os
 import re
 import tempfile
@@ -93,7 +94,8 @@ class PushoverNotificationService(BaseNotificationService):
                 auth=file_data.get(ATTR_FILE_AUTH))
 
             if filename is not None:
-                file = (filename, open(filename, "rb"), "image/jpeg")
+                file = (filename, open(
+                    filename, "rb"), mimetypes.guess_type(filename))
 
         for target in targets:
             if target is not None:
