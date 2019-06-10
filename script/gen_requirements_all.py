@@ -42,9 +42,11 @@ COMMENT_REQUIREMENTS = (
 )
 
 TEST_REQUIREMENTS = (
+    'ambiclimate',
     'aioambient',
     'aioautomatic',
     'aiobotocore',
+    'aioesphomeapi',
     'aiohttp_cors',
     'aiohue',
     'aiounifi',
@@ -87,6 +89,7 @@ TEST_REQUIREMENTS = (
     'luftdaten',
     'mbddns',
     'mficlient',
+    'netdisco',
     'numpy',
     'oauth2client',
     'paho-mqtt',
@@ -94,6 +97,7 @@ TEST_REQUIREMENTS = (
     'pilight',
     'pmsensor',
     'prometheus_client',
+    'ptvsd',
     'pushbullet.py',
     'py-canary',
     'pyblackbird',
@@ -101,6 +105,7 @@ TEST_REQUIREMENTS = (
     'pydispatcher',
     'pyheos',
     'pyhomematic',
+    'pyiqvia',
     'pylitejet',
     'pymonoprice',
     'pynx584',
@@ -144,6 +149,7 @@ TEST_REQUIREMENTS = (
     'vultr',
     'YesssSMS',
     'ruamel.yaml',
+    'zeroconf',
     'zigpy-homeassistant',
     'bellows-homeassistant',
 )
