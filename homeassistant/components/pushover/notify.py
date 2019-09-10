@@ -1,6 +1,9 @@
 """Pushover platform for notify component."""
 import logging
 
+from requests.auth import HTTPBasicAuth
+from requests.auth import HTTPDigestAuth
+
 import voluptuous as vol
 
 from homeassistant.const import CONF_API_KEY
@@ -18,13 +21,13 @@ from homeassistant.components.notify import (
 _LOGGER = logging.getLogger(__name__)
 
 ATTR_ATTACHMENT = "attachment"
-ATTR_AUTH = 'auth'
-ATTR_USERNAME = 'username'
-ATTR_PASSWORD = 'password'
+ATTR_AUTH = "auth"
+ATTR_USERNAME = "username"
+ATTR_PASSWORD = "password"
 
 # Valid values for 'auth' attribute
-ATTR_AUTH_BASIC = 'basic'
-ATTR_AUTH_DIGEST = 'digest'
+ATTR_AUTH_BASIC = "basic"
+ATTR_AUTH_DIGEST = "digest"
 
 CONF_USER_KEY = "user_key"
 
@@ -75,9 +78,9 @@ class PushoverNotificationService(BaseNotificationService):
 
                 if ATTR_AUTH in data:
                     if ATTR_AUTH_BASIC == data[ATTR_AUTH]:
-                        auth = HTTPBasicAuth(username, password)
-                    else if ATTR_AUTH_DIGEST == data[ATTR_AUTH]:
-                        auth = HTTPDigestAuth(username, password)
+                        auth = HTTPBasicAuth(data[ATTR_USERNAME], data[ATTR_PASSWORD])
+                    elif ATTR_AUTH_DIGEST == data[ATTR_AUTH]:
+                        auth = HTTPDigestAuth(data[ATTR_USERNAME], data[ATTR_PASSWORD])
 
                 try:
                     import requests
