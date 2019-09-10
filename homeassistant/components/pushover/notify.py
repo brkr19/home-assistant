@@ -1,42 +1,36 @@
 """Pushover platform for notify component."""
 import logging
-import re
 
-import requests
-from requests.auth import HTTPBasicAuth
-from requests.auth import HTTPDigestAuth
 import voluptuous as vol
 
 from homeassistant.const import CONF_API_KEY
 import homeassistant.helpers.config_validation as cv
 
 from homeassistant.components.notify import (
-    ATTR_DATA, ATTR_TARGET, ATTR_TITLE, ATTR_TITLE_DEFAULT, PLATFORM_SCHEMA,
-    BaseNotificationService)
+    ATTR_DATA,
+    ATTR_TARGET,
+    ATTR_TITLE,
+    ATTR_TITLE_DEFAULT,
+    PLATFORM_SCHEMA,
+    BaseNotificationService,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-# Top level attributes in 'data'
-ATTR_FILE = 'file'
-
-# Attributes contained in file
-ATTR_FILE_PATH = 'path'
-ATTR_FILE_URL = 'url'
-ATTR_FILE_AUTH = 'auth'
-ATTR_FILE_USERNAME = 'username'
-ATTR_FILE_PASSWORD = 'password'
+ATTR_ATTACHMENT = "attachment"
+ATTR_AUTH = 'auth'
+ATTR_USERNAME = 'username'
+ATTR_PASSWORD = 'password'
 
 # Valid values for 'auth' attribute
-ATTR_FILE_AUTH_BASIC = 'basic'
-ATTR_FILE_AUTH_DIGEST = 'digest'
+ATTR_AUTH_BASIC = 'basic'
+ATTR_AUTH_DIGEST = 'digest'
 
-CONF_TIMEOUT = 15
-CONF_USER_KEY = 'user_key'
+CONF_USER_KEY = "user_key"
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_USER_KEY): cv.string,
-    vol.Required(CONF_API_KEY): cv.string,
-})
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
+    {vol.Required(CONF_USER_KEY): cv.string, vol.Required(CONF_API_KEY): cv.string}
+)
 
 
 def get_service(hass, config, discovery_info=None):
@@ -45,8 +39,8 @@ def get_service(hass, config, discovery_info=None):
 
     try:
         return PushoverNotificationService(
-            config[CONF_USER_KEY], config[CONF_API_KEY],
-            hass.config.is_allowed_path, hass.config.path('www'))
+            hass, config[CONF_USER_KEY], config[CONF_API_KEY]
+        )
     except InitError:
         _LOGGER.error("Wrong API key supplied")
         return None
@@ -55,92 +49,82 @@ def get_service(hass, config, discovery_info=None):
 class PushoverNotificationService(BaseNotificationService):
     """Implement the notification service for Pushover."""
 
-    def __init__(self, user_key, api_token, is_allowed_path, local_www_path):
+    def __init__(self, hass, user_key, api_token):
         """Initialize the service."""
         from pushover import Client
+
+        self._hass = hass
         self._user_key = user_key
         self._api_token = api_token
-        self._is_allowed_path = is_allowed_path
-        self._local_www_path = local_www_path
-        self.pushover = Client(
-            self._user_key, api_token=self._api_token)
+        self.pushover = Client(self._user_key, api_token=self._api_token)
 
-    def send_message(self, message='', **kwargs):
+    def send_message(self, message="", **kwargs):
         """Send a message to a user."""
         from pushover import RequestError
 
         # Make a copy and use empty dict if necessary
         data = dict(kwargs.get(ATTR_DATA) or {})
-        file_data = data.pop(ATTR_FILE, None)
 
-        data['title'] = kwargs.get(ATTR_TITLE, ATTR_TITLE_DEFAULT)
+        data["title"] = kwargs.get(ATTR_TITLE, ATTR_TITLE_DEFAULT)
+
+        # Check for attachment.
+        if ATTR_ATTACHMENT in data:
+            # If attachment is a URL, use requests to open it as a stream.
+            if data[ATTR_ATTACHMENT].startswith("http"):
+                auth = None
+
+                if ATTR_AUTH in data:
+                    if ATTR_AUTH_BASIC == data[ATTR_AUTH]:
+                        auth = HTTPBasicAuth(username, password)
+                    else if ATTR_AUTH_DIGEST == data[ATTR_AUTH]:
+                        auth = HTTPDigestAuth(username, password)
+
+                try:
+                    import requests
+
+                    response = requests.get(
+                        data[ATTR_ATTACHMENT], auth=auth, stream=True, timeout=5
+                    )
+                    if response.status_code == 200:
+                        # Replace the attachment identifier with file object.
+                        data[ATTR_ATTACHMENT] = response.content
+                    else:
+                        _LOGGER.error("Image not found")
+                        # Remove attachment key to send without attachment.
+                        del data[ATTR_ATTACHMENT]
+                except requests.exceptions.RequestException as ex_val:
+                    _LOGGER.error(ex_val)
+                    # Remove attachment key to try sending without attachment
+                    del data[ATTR_ATTACHMENT]
+            else:
+                # Not a URL, check valid path first
+                if self._hass.config.is_allowed_path(data[ATTR_ATTACHMENT]):
+                    # try to open it as a normal file.
+                    try:
+                        file_handle = open(data[ATTR_ATTACHMENT], "rb")
+                        # Replace the attachment identifier with file object.
+                        data[ATTR_ATTACHMENT] = file_handle
+                    except OSError as ex_val:
+                        _LOGGER.error(ex_val)
+                        # Remove attachment key to send without attachment.
+                        del data[ATTR_ATTACHMENT]
+                else:
+                    _LOGGER.error("Path is not whitelisted")
+                    # Remove attachment key to send without attachment.
+                    del data[ATTR_ATTACHMENT]
 
         targets = kwargs.get(ATTR_TARGET)
 
         if not isinstance(targets, list):
             targets = [targets]
 
-        file = {}
-
-        if file_data is not None:
-            file = self.load_file(
-                url=file_data.get(ATTR_FILE_URL),
-                local_path=file_data.get(ATTR_FILE_PATH),
-                username=file_data.get(ATTR_FILE_USERNAME),
-                password=file_data.get(ATTR_FILE_PASSWORD),
-                auth=file_data.get(ATTR_FILE_AUTH))
-
         for target in targets:
             if target is not None:
-                data['device'] = target
+                data["device"] = target
 
             try:
-                self.pushover.send_message(
-                    message=message, attachment=file, **data)
-
+                self.pushover.send_message(message, **data)
             except ValueError as val_err:
-                _LOGGER.error(str(val_err))
+                _LOGGER.error(val_err)
             except RequestError:
                 _LOGGER.exception("Could not send pushover notification")
-
-    def load_file(self, url=None, local_path=None, username=None,
-                  password=None, auth=None):
-        """Load image/document/etc from a local path or URL."""
-        # Load the file from URL
-        if url:
-            if username:
-                if ATTR_FILE_AUTH_DIGEST == auth:
-                    auth = HTTPDigestAuth(username, password)
-                else:
-                    auth = HTTPBasicAuth(username, password)
-            else:
-                auth = None
-
-            # Make the request and raise an error if necessary
-            try:
-                response = requests.get(url, auth=auth, timeout=CONF_TIMEOUT)
-                response.raise_for_status()
-                return response.content
-
-            except requests.exceptions.RequestException as request_error:
-                _LOGGER.error("Could not load from url: %s", request_error)
-
-        # Load the file from the filesystem
-        elif local_path:
-            # Change the path if the file is in the local www directory
-            regex = re.compile('^/local/')
-            local_path = regex.sub(self._local_www_path + "/", local_path)
-
-            # Check whether path is whitelisted in configuration.yaml
-            if self._is_allowed_path(local_path):
-                try:
-                    return open(local_path, "rb")
-                except OSError as error:
-                    _LOGGER.error("Could not load file: %s", error)
-            else:
-                _LOGGER.warning("Could not load file from insecure path: '%s'",
-                                local_path)
-        else:
-            _LOGGER.warning("Neither URL nor local path found in params!")
-
-        return None
