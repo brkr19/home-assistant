@@ -4,7 +4,9 @@ import logging
 from requests.auth import HTTPBasicAuth
 from requests.auth import HTTPDigestAuth
 
+import requests
 import voluptuous as vol
+from pushover import InitError, Client, RequestError
 
 from homeassistant.const import CONF_API_KEY
 import homeassistant.helpers.config_validation as cv
@@ -38,8 +40,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 def get_service(hass, config, discovery_info=None):
     """Get the Pushover notification service."""
-    from pushover import InitError
-
     try:
         return PushoverNotificationService(
             hass, config[CONF_USER_KEY], config[CONF_API_KEY]
@@ -54,8 +54,6 @@ class PushoverNotificationService(BaseNotificationService):
 
     def __init__(self, hass, user_key, api_token):
         """Initialize the service."""
-        from pushover import Client
-
         self._hass = hass
         self._user_key = user_key
         self._api_token = api_token
@@ -63,8 +61,6 @@ class PushoverNotificationService(BaseNotificationService):
 
     def send_message(self, message="", **kwargs):
         """Send a message to a user."""
-        from pushover import RequestError
-
         # Make a copy and use empty dict if necessary
         data = dict(kwargs.get(ATTR_DATA) or {})
 
@@ -83,8 +79,6 @@ class PushoverNotificationService(BaseNotificationService):
                         auth = HTTPDigestAuth(data[ATTR_USERNAME], data[ATTR_PASSWORD])
 
                 try:
-                    import requests
-
                     response = requests.get(
                         data[ATTR_ATTACHMENT], auth=auth, stream=True, timeout=5
                     )

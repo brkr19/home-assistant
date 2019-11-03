@@ -68,18 +68,19 @@ def setup(hass, base_config):
                 hass.data[LUTRON_DEVICES]["switch"].append((area.name, output))
         for keypad in area.keypads:
             for button in keypad.buttons:
-                # This is the best way to determine if a button does anything
-                # useful until pylutron is updated to provide information on
-                # which buttons actually control scenes.
-                for led in keypad.leds:
-                    if (
-                        led.number == button.number
-                        and button.name != "Unknown Button"
-                        and button.button_type in ("SingleAction", "Toggle")
-                    ):
-                        hass.data[LUTRON_DEVICES]["scene"].append(
-                            (area.name, keypad.name, button, led)
-                        )
+                # If the button has a function assigned to it, add it as a scene
+                if button.name != "Unknown Button" and button.button_type in (
+                    "SingleAction",
+                    "Toggle",
+                ):
+                    # Associate an LED with a button if there is one
+                    led = next(
+                        (led for led in keypad.leds if led.number == button.number),
+                        None,
+                    )
+                    hass.data[LUTRON_DEVICES]["scene"].append(
+                        (area.name, keypad.name, button, led)
+                    )
 
                 hass.data[LUTRON_BUTTONS].append(LutronButton(hass, keypad, button))
         if area.occupancy_group is not None:
@@ -114,7 +115,7 @@ class LutronDevice(Entity):
     @property
     def name(self):
         """Return the name of the device."""
-        return "{} {}".format(self._area_name, self._lutron_device.name)
+        return f"{self._area_name} {self._lutron_device.name}"
 
     @property
     def should_poll(self):
@@ -132,7 +133,7 @@ class LutronButton:
 
     def __init__(self, hass, keypad, button):
         """Register callback for activity on the button."""
-        name = "{}: {}".format(keypad.name, button.name)
+        name = f"{keypad.name}: {button.name}"
         self._hass = hass
         self._has_release_event = (
             button.button_type is not None and "RaiseLower" in button.button_type
