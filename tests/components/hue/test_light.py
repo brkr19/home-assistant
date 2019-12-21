@@ -180,6 +180,7 @@ def mock_bridge(hass):
     """Mock a Hue bridge."""
     bridge = Mock(
         available=True,
+        authorized=True,
         allow_unreachable=False,
         allow_groups=False,
         api=Mock(),
@@ -203,6 +204,10 @@ def mock_bridge(hass):
             return bridge.mock_group_responses.popleft()
         return None
 
+    async def async_request_call(coro):
+        await coro
+
+    bridge.async_request_call = async_request_call
     bridge.api.config.apiversion = "9.9.9"
     bridge.api.lights = Lights({}, mock_request)
     bridge.api.groups = Groups({}, mock_request)
@@ -598,13 +603,13 @@ async def test_update_timeout(hass, mock_bridge):
 
 
 async def test_update_unauthorized(hass, mock_bridge):
-    """Test bridge marked as not available if unauthorized during update."""
+    """Test bridge marked as not authorized if unauthorized during update."""
     mock_bridge.api.lights.update = Mock(side_effect=aiohue.Unauthorized)
     mock_bridge.api.groups.update = Mock(side_effect=aiohue.Unauthorized)
     await setup_bridge(hass, mock_bridge)
     assert len(mock_bridge.mock_requests) == 0
     assert len(hass.states.async_all()) == 0
-    assert mock_bridge.available is False
+    assert len(mock_bridge.handle_unauthorized_error.mock_calls) == 1
 
 
 async def test_light_turn_on_service(hass, mock_bridge):

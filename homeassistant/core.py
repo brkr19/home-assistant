@@ -68,14 +68,13 @@ from homeassistant.util.async_ import run_callback_threadsafe, fire_coroutine_th
 from homeassistant import util
 import homeassistant.util.dt as dt_util
 from homeassistant.util import location, slugify
-from homeassistant.util.unit_system import (  # NOQA
+from homeassistant.util.unit_system import (
     UnitSystem,
     IMPERIAL_SYSTEM,
     METRIC_SYSTEM,
 )
 
 # Typing imports that create a circular dependency
-# pylint: disable=using-constant-test
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntries
     from homeassistant.components.http import HomeAssistantHTTP
@@ -1283,7 +1282,7 @@ class Config:
         self.skip_pip: bool = False
 
         # List of loaded components
-        self.components: set = set()
+        self.components: Set[str] = set()
 
         # API (HTTP) server configuration, see components.http.ApiConfig
         self.api: Optional[Any] = None

@@ -7,7 +7,7 @@ import random
 import re
 from datetime import datetime
 from functools import wraps
-from typing import Any, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 import jinja2
 from jinja2 import contextfilter, contextfunction
@@ -69,10 +69,14 @@ def render_complex(value, variables=None):
         return [render_complex(item, variables) for item in value]
     if isinstance(value, dict):
         return {key: render_complex(item, variables) for key, item in value.items()}
-    return value.async_render(variables)
+    if isinstance(value, Template):
+        return value.async_render(variables)
+    return value
 
 
-def extract_entities(template, variables=None):
+def extract_entities(
+    template: Optional[str], variables: Optional[Dict[str, Any]] = None
+) -> Union[str, List[str]]:
     """Extract all entities for state_changed listener from template string."""
     if template is None or _RE_JINJA_DELIMITERS.search(template) is None:
         return []
@@ -86,6 +90,7 @@ def extract_entities(template, variables=None):
     for result in extraction:
         if (
             result[0] == "trigger.entity_id"
+            and variables
             and "trigger" in variables
             and "entity_id" in variables["trigger"]
         ):
@@ -139,7 +144,7 @@ class RenderInfo:
     def result(self) -> str:
         """Results of the template computation."""
         if self._exception is not None:
-            raise self._exception  # pylint: disable=raising-bad-type
+            raise self._exception
         return self._result
 
     def _freeze(self) -> None:
@@ -163,7 +168,7 @@ class Template:
         if not isinstance(template, str):
             raise TypeError("Expected template to be a string")
 
-        self.template = template
+        self.template: str = template
         self._compiled_code = None
         self._compiled = None
         self.hass = hass
@@ -187,7 +192,9 @@ class Template:
         except jinja2.exceptions.TemplateSyntaxError as err:
             raise TemplateError(err)
 
-    def extract_entities(self, variables=None):
+    def extract_entities(
+        self, variables: Dict[str, Any] = None
+    ) -> Union[str, List[str]]:
         """Extract all entities for state_changed listener."""
         return extract_entities(self.template, variables)
 
@@ -664,6 +671,8 @@ def forgiving_round(value, precision=0, method="common"):
             value = math.ceil(float(value) * multiplier) / multiplier
         elif method == "floor":
             value = math.floor(float(value) * multiplier) / multiplier
+        elif method == "half":
+            value = round(float(value) * 2) / 2
         else:
             # if method is common or something else, use common rounding
             value = round(float(value), precision)
