@@ -3,10 +3,10 @@ import asyncio
 from datetime import timedelta
 import logging
 from uuid import uuid4
-import jwt
 
-from aiohttp import ClientResponseError, ClientError
+from aiohttp import ClientError, ClientResponseError
 from aiohttp.web import Request, Response
+import jwt
 
 # Typing imports
 from homeassistant.components.http import HomeAssistantView
@@ -15,24 +15,24 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    GOOGLE_ASSISTANT_API_ENDPOINT,
     CONF_API_KEY,
-    CONF_EXPOSE_BY_DEFAULT,
-    CONF_EXPOSED_DOMAINS,
+    CONF_CLIENT_EMAIL,
     CONF_ENTITY_CONFIG,
     CONF_EXPOSE,
+    CONF_EXPOSE_BY_DEFAULT,
+    CONF_EXPOSED_DOMAINS,
+    CONF_PRIVATE_KEY,
     CONF_REPORT_STATE,
     CONF_SECURE_DEVICES_PIN,
     CONF_SERVICE_ACCOUNT,
-    CONF_CLIENT_EMAIL,
-    CONF_PRIVATE_KEY,
-    HOMEGRAPH_TOKEN_URL,
+    GOOGLE_ASSISTANT_API_ENDPOINT,
     HOMEGRAPH_SCOPE,
+    HOMEGRAPH_TOKEN_URL,
     REPORT_STATE_BASE_URL,
     REQUEST_SYNC_BASE_URL,
 )
-from .smart_home import async_handle_message
 from .helpers import AbstractConfig
+from .smart_home import async_handle_message
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,6 +120,10 @@ class GoogleConfig(AbstractConfig):
         is_default_exposed = domain_exposed_by_default and explicit_expose is not False
 
         return is_default_exposed or explicit_expose
+
+    def get_agent_user_id(self, context):
+        """Get agent user ID making request."""
+        return context.user_id
 
     def should_2fa(self, state):
         """If an entity should have 2FA checked."""

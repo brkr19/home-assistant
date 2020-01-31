@@ -2,16 +2,15 @@
 import logging
 from pprint import pformat
 
-from homeassistant.components.unifi.config_flow import get_controller_from_config_entry
 from homeassistant.components.device_tracker import DOMAIN as DEVICE_TRACKER_DOMAIN
 from homeassistant.components.device_tracker.config_entry import ScannerEntity
 from homeassistant.components.device_tracker.const import SOURCE_TYPE_ROUTER
+from homeassistant.components.unifi.config_flow import get_controller_from_config_entry
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_registry import DISABLED_CONFIG_ENTRY
-
 import homeassistant.util.dt as dt_util
 
 from .const import ATTR_MANUFACTURER
@@ -130,6 +129,9 @@ class UniFiClientTracker(ScannerEntity):
         self.controller = controller
         self.is_wired = self.client.mac not in controller.wireless_clients
         self.wired_bug = None
+
+        if self.is_wired != self.client.is_wired:
+            self.wired_bug = dt_util.utcnow() - self.controller.option_detection_time
 
     @property
     def entity_registry_enabled_default(self):

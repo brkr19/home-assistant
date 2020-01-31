@@ -1,4 +1,5 @@
 """Helper classes for Google Assistant integration."""
+from abc import ABC, abstractmethod
 from asyncio import gather
 from collections.abc import Mapping
 import logging
@@ -7,26 +8,26 @@ from typing import List, Optional
 
 from aiohttp.web import json_response
 
-from homeassistant.core import Context, callback, HomeAssistant, State
-from homeassistant.helpers.event import async_call_later
 from homeassistant.components import webhook
-from homeassistant.helpers.storage import Store
 from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
+    ATTR_SUPPORTED_FEATURES,
+    CLOUD_NEVER_EXPOSED_ENTITIES,
     CONF_NAME,
     STATE_UNAVAILABLE,
-    ATTR_SUPPORTED_FEATURES,
-    ATTR_DEVICE_CLASS,
-    CLOUD_NEVER_EXPOSED_ENTITIES,
 )
+from homeassistant.core import Context, HomeAssistant, State, callback
+from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.storage import Store
 
 from . import trait
 from .const import (
+    CONF_ALIASES,
+    CONF_ROOM_HINT,
+    DEVICE_CLASS_TO_GOOGLE_TYPES,
     DOMAIN,
     DOMAIN_TO_GOOGLE_TYPES,
-    CONF_ALIASES,
     ERR_FUNCTION_NOT_SUPPORTED,
-    DEVICE_CLASS_TO_GOOGLE_TYPES,
-    CONF_ROOM_HINT,
     STORE_AGENT_USER_IDS,
 )
 from .error import SmartHomeError
@@ -35,7 +36,7 @@ SYNC_DELAY = 15
 _LOGGER = logging.getLogger(__name__)
 
 
-class AbstractConfig:
+class AbstractConfig(ABC):
     """Hold the configuration for Google Assistant."""
 
     _unsub_report_state = None
@@ -95,9 +96,13 @@ class AbstractConfig:
         """Return the user ID to be used for actions received via the local SDK."""
         raise NotImplementedError
 
+    @abstractmethod
+    def get_agent_user_id(self, context):
+        """Get agent user ID from context."""
+
+    @abstractmethod
     def should_expose(self, state) -> bool:
         """Return if entity should be exposed."""
-        raise NotImplementedError
 
     def should_2fa(self, state):
         """If an entity should have 2FA checked."""
@@ -119,6 +124,7 @@ class AbstractConfig:
     def async_enable_report_state(self):
         """Enable proactive mode."""
         # Circular dep
+        # pylint: disable=import-outside-toplevel
         from .report_state import async_enable_report_state
 
         if self._unsub_report_state is None:
@@ -213,6 +219,8 @@ class AbstractConfig:
 
     async def _handle_local_webhook(self, hass, webhook_id, request):
         """Handle an incoming local SDK message."""
+        # Circular dep
+        # pylint: disable=import-outside-toplevel
         from . import smart_home
 
         payload = await request.json()
